@@ -2,11 +2,16 @@ package com.galix.opentiktok.ui;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -25,6 +30,7 @@ import com.galix.avcore.util.VideoUtil;
 import com.galix.opentiktok.R;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -40,14 +46,14 @@ import java.util.List;
  */
 public class VideoPickActivity extends BaseActivity {
 
-    private static final String TAG = VideoPickActivity.class.getSimpleName();
-    public static final int REQ_PICK = 0;
-    private HandlerThread mLoadThread;
-    private Handler mLoadHandler;
-    private ArrayList<VideoUtil.FileEntry> mFileCache;
-    private RecyclerView mRecyclerView;
-    private ContentLoadingProgressBar mProgressBar;
-    public static LinkedList<VideoUtil.FileEntry> mFiles = new LinkedList<>();
+    private static final String                          TAG      = "VideoPickActivity : ";
+    public static final  int                             REQ_PICK = 0;
+    private              HandlerThread                   mLoadThread;
+    private              Handler                         mLoadHandler;
+    private              ArrayList<VideoUtil.FileEntry>  mFileCache;
+    private              RecyclerView                    mRecyclerView;
+    private              ContentLoadingProgressBar       mProgressBar;
+    public static        LinkedList<VideoUtil.FileEntry> mFiles   = new LinkedList<>();
 
     public static void start(Activity context) {
         Intent intent = new Intent(context, VideoPickActivity.class);
@@ -59,7 +65,7 @@ public class VideoPickActivity extends BaseActivity {
 
         public ImageView imageView;
         public ImageView pickBtn;
-        public TextView textView;
+        public TextView  textView;
 
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -82,7 +88,7 @@ public class VideoPickActivity extends BaseActivity {
             @NonNull
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-                View layout = getLayoutInflater().inflate(R.layout.layout_video_info, parent, false);
+                View            layout          = getLayoutInflater().inflate(R.layout.layout_video_info, parent, false);
                 ImageViewHolder imageViewHolder = new ImageViewHolder(layout);
                 imageViewHolder.itemView.getLayoutParams().width = parent.getMeasuredWidth() / 2;
                 imageViewHolder.itemView.getLayoutParams().height = parent.getMeasuredWidth() / 2;
@@ -97,9 +103,7 @@ public class VideoPickActivity extends BaseActivity {
                 ImageViewHolder imageViewHolder = (ImageViewHolder) holder;
                 imageViewHolder.imageView.setImageBitmap(mFileCache.get(position).thumb);
                 VideoUtil.FileEntry fileEntry = mFileCache.get(position);
-                imageViewHolder.pickBtn.setSelected(
-                        mFiles.contains(fileEntry)
-                );
+                imageViewHolder.pickBtn.setSelected(mFiles.contains(fileEntry));
                 imageViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -111,9 +115,7 @@ public class VideoPickActivity extends BaseActivity {
                         notifyDataSetChanged();
                     }
                 });
-                imageViewHolder.textView.setText(
-                        String.format("width:%d\nheight:%d\nduration:%ds\npath:%s",
-                                fileEntry.width, fileEntry.height, fileEntry.duration / 1000000, fileEntry.path));
+                imageViewHolder.textView.setText(String.format("width:%d\nheight:%d\nduration:%ds\npath:%s", fileEntry.width, fileEntry.height, fileEntry.duration / 1000000, fileEntry.path));
             }
 
             @Override
@@ -127,6 +129,19 @@ public class VideoPickActivity extends BaseActivity {
         mLoadThread = new HandlerThread("LoadResource");
         mLoadThread.start();
         mLoadHandler = new Handler(mLoadThread.getLooper());
+
+        initVideoFrameData();
+
+
+    }
+
+    private void initVideoFrameData() {
+        if (mLoadHandler == null) {
+            return;
+
+        }
+
+
         mLoadHandler.post(() -> {
             long now1 = System.currentTimeMillis();
             mFileCache = new ArrayList<>();
@@ -145,35 +160,94 @@ public class VideoPickActivity extends BaseActivity {
                     mp4List.addAll(Arrays.asList(mp4s));
                 }
             }
-//            List<File> mp4List = new LinkedList<>();
-//            mp4List.add(new File("/sdcard/test.mp4"));
+            //            List<File> mp4List = new LinkedList<>();
+            //            mp4List.add(new File("/sdcard/test.mp4"));
+
+            Log.d(TAG, "initVideoFrameData: mp4List : " + mp4List);
+
+
+
+
             for (File mp4 : mp4List) {
                 MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
+                String                 mp4FilePath            = mp4.getAbsolutePath();
                 try {
-                    mediaMetadataRetriever.setDataSource(mp4.getAbsolutePath());
-                    if (Integer.parseInt(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)) > 0) {
-                        Log.d(TAG, mp4.getAbsolutePath());
-                        VideoUtil.FileEntry fileEntry = new VideoUtil.FileEntry();
-                        fileEntry.duration = Integer.parseInt(mediaMetadataRetriever.extractMetadata
-                                (MediaMetadataRetriever.METADATA_KEY_DURATION)) * 1000;
-                        fileEntry.thumb = mediaMetadataRetriever.getFrameAtIndex(0);
-                        fileEntry.width = Integer.parseInt(mediaMetadataRetriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
-                        fileEntry.height = Integer.parseInt(mediaMetadataRetriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
-                        fileEntry.path = mp4.getAbsolutePath();
-                        fileEntry.adjustPath = VideoUtil.getAdjustGopVideoPath(VideoPickActivity.this, fileEntry.path);
-                        mFileCache.add(fileEntry);
-                        getWindow().getDecorView().post(() -> mRecyclerView.getAdapter().notifyDataSetChanged());
+                    mediaMetadataRetriever.setDataSource(mp4FilePath);
+                    int extractMetadataCount = 0;
+                    int totalFrames = 0;
+                    // 视频中 帧的数量
+                    String s = null;
+
+                    VideoUtil.FileEntry fileEntry = new VideoUtil.FileEntry();
+                    // android 28
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        s = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT);
+                        totalFrames = Integer.parseInt(s);
+
+                    } else {
+                        MediaExtractor extractor = new MediaExtractor();
+                        try {
+                            extractor.setDataSource(mp4FilePath);
+
+                            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                                MediaFormat format = extractor.getTrackFormat(i);
+
+                                if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+                                    int  frameRate  = format.getInteger(MediaFormat.KEY_FRAME_RATE);
+                                    fileEntry.frameRate = frameRate;
+                                    long durationUs = format.getLong(MediaFormat.KEY_DURATION);
+                                    totalFrames += durationUs / (1000000 / frameRate);
+                                }
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        } finally {
+                            extractor.release();
+                        }
+
                     }
+                    if (totalFrames <= 0) {
+                        continue;
+                    }
+
+
+                    Log.d(TAG, mp4.getAbsolutePath());
+
+                    fileEntry.duration = Integer.parseInt(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)) * 1000L;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        fileEntry.thumb = mediaMetadataRetriever.getFrameAtIndex(0);
+                    } else {
+                        long durationUs = Long.parseLong(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+
+                        // 计算指定索引位置的时间点
+                        long targetTimeUs = 0 * 1000000 / fileEntry.frameRate;
+
+                        // 获取指定时间点的帧
+                        fileEntry.thumb = mediaMetadataRetriever.getFrameAtTime(targetTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                    }
+
+                    fileEntry.width = Integer.parseInt(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                    fileEntry.height = Integer.parseInt(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+                    fileEntry.path = mp4.getAbsolutePath();
+                    fileEntry.adjustPath = VideoUtil.getAdjustGopVideoPath(VideoPickActivity.this, fileEntry.path);
+                    mFileCache.add(fileEntry);
+                    getWindow().getDecorView().post(() -> mRecyclerView.getAdapter().notifyDataSetChanged());
+
+
                 } catch (Exception e) {
                     e.printStackTrace();
+                    Log.e(TAG, "initVideoFrameData ERROR : the video is " + mp4FilePath);
                     continue;
                 } finally {
                     mediaMetadataRetriever.release();
                 }
             }
+
             long now2 = System.currentTimeMillis();
             Log.d(TAG, "Filter mp4 on /sdcard : Use#" + (now2 - now1));
         });
+
+
     }
 
     @Override
