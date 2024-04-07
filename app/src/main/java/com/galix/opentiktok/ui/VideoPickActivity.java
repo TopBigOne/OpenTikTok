@@ -147,8 +147,15 @@ public class VideoPickActivity extends BaseActivity {
             mFileCache = new ArrayList<>();
             List<String> targetPaths = new LinkedList<>();
             targetPaths.add(getCacheDir().toString());
-            targetPaths.add(Environment.getExternalStorageDirectory().getPath());//搜索sdcard目录
+
+            // 针对三星手机；
+            String cameraPath= Environment.getExternalStorageDirectory().getPath()+"/DCIM/Camera";
+            targetPaths.add(cameraPath);//搜索sdcard目录
             targetPaths.add(FileUtils.getCompositeDir(VideoPickActivity.this));//搜索cache composite目录
+
+            Log.d(TAG, "initVideoFrameData: targetPaths : " + targetPaths);
+
+
             List<File> mp4List = new LinkedList<>();
             for (String path : targetPaths) {
                 File dir = new File(path);
