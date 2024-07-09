@@ -206,6 +206,10 @@ public class VideoUtil {
             while (nowPts < end) {
                 String dstJpg = VideoUtil.getThumbJpg(context, path, nowPts);
                 Bitmap thumb = mediaMetadataRetriever.getFrameAtTime(nowPts, MediaMetadataRetriever.OPTION_PREVIOUS_SYNC);
+                if(thumb==null){
+                    Log.e(TAG, "ThumbTask: thumb is NULL");
+                    return;
+                }
                 thumb = Bitmap.createScaledBitmap(
                         thumb,
                         (int) (context.getResources().getDisplayMetrics().density * 60),
