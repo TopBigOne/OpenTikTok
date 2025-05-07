@@ -259,6 +259,7 @@ public class VideoEditActivity extends BaseActivity {
                         .load(mStickerList.get(position))
                         .asGif()
                         .into((ImageView) holder.itemView);
+                
                 holder.itemView.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -507,14 +508,17 @@ public class VideoEditActivity extends BaseActivity {
     }
 
     private void freshUI() {
+        Log.d(TAG, "freshUI: ");
         getWindow().getDecorView().post(() -> {
             AVEngine.VideoState mVideoState = AVEngine.getVideoEngine().getVideoState();
             if (mVideoState != null) {
                 long positionInMS = (AVEngine.getVideoEngine().getMainClock() + 999) / 1000;
                 long durationInMS = (mVideoState.videoDuration + 999) / 1000;
-                mTimeInfo.setText(String.format("%02d:%02d:%03d / %02d:%02d:%03d",
+                String timeInfo = String.format("%02d:%02d:%03d / %02d:%02d:%03d",
                         positionInMS / 1000 / 60 % 60, positionInMS / 1000 % 60, positionInMS % 1000,
-                        durationInMS / 1000 / 60 % 60, durationInMS / 1000 % 60, durationInMS % 1000));
+                        durationInMS / 1000 / 60 % 60, durationInMS / 1000 % 60, durationInMS % 1000);
+                
+                mTimeInfo.setText(timeInfo);
                 mPlayBtn.setImageResource(mVideoState.status == START ? R.drawable.icon_video_pause : R.drawable.icon_video_play);
                 mVideoPreViewPanel.updateScroll(true);
             }

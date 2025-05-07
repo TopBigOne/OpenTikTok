@@ -60,6 +60,12 @@ public class VideoPickActivity extends BaseActivity {
         context.startActivityForResult(intent, REQ_PICK);
     }
 
+    // ffmpeg -re -i  /Users/dev/Desktop/mp4/三十首超好听民谣.mp4  -vcodec copy -f flv rtmp://localhost:1953/mytv/room
+    // ffmpeg -re -i  /Users/dev/Desktop/mp4/三十首超好听民谣.mp4  -vcodec copy -f flv rtmp://127.0.0.1:1953/live
+    // rtmp://localhost:1953/live
+
+    // git clone https://github.com/Homebrew/homebrew-core /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core --depth=1
+    // git clone https://github.com/Homebrew/homebrew-cask /opt/homebrew/Library/Taps/homebrew/homebrew-cask
 
     private static class ImageViewHolder extends RecyclerView.ViewHolder {
 
